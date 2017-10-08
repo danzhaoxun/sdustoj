@@ -116,7 +116,7 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = 'en-us'
 
 #TIME_ZONE = 'UTC'
-TIME_ZONE='Asia/Shanghai'
+TIME_ZONE='Asia/Wuhan'
 USE_I18N = True
 
 USE_L10N = True
