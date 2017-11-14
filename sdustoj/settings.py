@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/1.9/ref/settings/
 """
 
 import os
+import logging
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -27,29 +28,35 @@ DEBUG = True
 
 ALLOWED_HOSTS = ['*']
 
-
+#loging debug
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)s %(message)s',
+    filename='G:\sdustoj\debug\job.log',
+    filemode='w',
+)
 # Application definition
 
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
+    'sdustoj',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'sdustoj',
 ]
 
 MIDDLEWARE_CLASSES = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    #'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.auth.middleware.SessionAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
+    #'django.middleware.csrf.CsrfViewMiddleware',
     'sdustoj.middleware.QtsAuthenticationMiddleware',
 ]
 
@@ -78,18 +85,21 @@ WSGI_APPLICATION = 'sdustoj.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/1.9/ref/settings/#databases
 
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'sdustoj',
-        'USER':'sdustoj',
-        'PASSWORD':'sdust',
-        'HOST':'139.129.30.86',
+        'NAME': 'sdustoj_db',
+        'USER':'root',
+        'PASSWORD':'123456',
+        'HOST':'localhost',
        # 'HOST':'192.168.131.156',
-        'POST':'3306'
+        'POST':'3306',
+       # 'OPTIONS': {
+       #     'autocommit': True,
+       # },
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/1.9/ref/settings/#auth-password-validators
@@ -116,7 +126,7 @@ AUTH_PASSWORD_VALIDATORS = [
 LANGUAGE_CODE = 'en-us'
 
 #TIME_ZONE = 'UTC'
-TIME_ZONE='Asia/Wuhan'
+TIME_ZONE='UTC'
 USE_I18N = True
 
 USE_L10N = True

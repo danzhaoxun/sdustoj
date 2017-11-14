@@ -1,5 +1,6 @@
 from DjangoCaptcha import Captcha
 import random
+
 def code(request):
     ca=Captcha(request)
     figures = [2,3,4,5,6,7,8,9]

@@ -1,15 +1,15 @@
 from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import render_to_response, RequestContext
+from django.shortcuts import render_to_response
+from django.template import RequestContext
 from django.template.context_processors import csrf
 from django.views.decorators.csrf import csrf_protect, csrf_exempt
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.forms.models import model_to_dict
-from sdustoj.models import *
 import operator
 import time
 import json
-import config
+import sdustoj.config
 import os
 import re
 import datetime
@@ -19,6 +19,9 @@ from DjangoCaptcha import Captcha
 from django.utils.timezone import utc
 from django.utils.timezone import local
 import operator
+import sdustoj.models
+import logging
+from sdustoj.models import *
 
 '''
 this is the views file
@@ -86,15 +89,15 @@ def signin(request, user=None, p=""):
     else:
         return render_to_response('Sign/signin.html',  c)
     try:
-        user = Users.objects.get(user_id=str(u))
-    except Users.DoesNotExist:
+        user = sdustoj.models.Users.objects.get(user_id=str(u))
+    except sdustoj.models.Users.DoesNotExist:
         return render_to_response('Sign/signin.html', {'error': 'usererror'}, c)
     if p != "" and str(p) == str(user.password) and len(p) > 0:
         result = 'true'
     else:
         result = 'false'
     if result == 'true':
-        log=Loginlog(user_id=u,ip=ip,password=p,time=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()))
+        log=sdustoj.models.Loginlog(user_id=u,ip=ip,password=p,time=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()))
         log.save()
         response = HttpResponseRedirect('index', c)
         response.set_cookie('uname', u, 3600)
@@ -123,19 +126,19 @@ def user(request):
     if 'uname' in request.COOKIES:
         if userid == request.COOKIES['uname']:
             login = True
-    user = Users.objects.filter(user_id=userid)[0]
-    problemlist = Statusinfo.objects.filter(user_id=userid, status='Accepted').values('problem_id').distinct().order_by(
+    user = sdustoj.models.Users.objects.filter(user_id=userid)[0]
+    problemlist = sdustoj.models.Statusinfo.objects.filter(user_id=userid, status='Accepted').values('problem_id').distinct().order_by(
         'problem_id')
     solve = len(problemlist)
-    submit = len(Statusinfo.objects.filter(user_id=userid))
-    ac = len(Statusinfo.objects.filter(user_id=userid, status='Accepted'))
-    pe = len(Statusinfo.objects.filter(user_id=userid, status='Presentation Error'))
-    wa = len(Statusinfo.objects.filter(user_id=userid, status='Wrong Answer'))
-    tle = len(Statusinfo.objects.filter(user_id=userid, status='Time Limit Exceeded'))
-    mle = len(Statusinfo.objects.filter(user_id=userid, status='Memory Limit Exceeded'))
-    ole = len(Statusinfo.objects.filter(user_id=userid, status='Output Limit Exceeded'))
-    re = len(Statusinfo.objects.filter(user_id=userid, status='Runtime Error'))
-    ce = len(Statusinfo.objects.filter(user_id=userid, status='Compiler Error'))
+    submit = len(sdustoj.models.Statusinfo.objects.filter(user_id=userid))
+    ac = len(sdustoj.models.Statusinfo.objects.filter(user_id=userid, status='Accepted'))
+    pe = len(sdustoj.models.Statusinfo.objects.filter(user_id=userid, status='Presentation Error'))
+    wa = len(sdustoj.models.Statusinfo.objects.filter(user_id=userid, status='Wrong Answer'))
+    tle = len(sdustoj.models.Statusinfo.objects.filter(user_id=userid, status='Time Limit Exceeded'))
+    mle = len(sdustoj.models.Statusinfo.objects.filter(user_id=userid, status='Memory Limit Exceeded'))
+    ole = len(sdustoj.models.Statusinfo.objects.filter(user_id=userid, status='Output Limit Exceeded'))
+    re = len(sdustoj.models.Statusinfo.objects.filter(user_id=userid, status='Runtime Error'))
+    ce = len(sdustoj.models.Statusinfo.objects.filter(user_id=userid, status='Compiler Error'))
     return render_to_response('user/user.html',
                               {'user': user, 'submit': submit, 'ac': ac, 'pe': pe, 'wa': wa, 'tle': tle, 'mle': mle,
                                'ole': ole, 're': re, 'ce': ce, 'solve': solve, 'problemlist': problemlist,
@@ -150,7 +153,7 @@ def useredit(request):
     user = ''
     if 'uname' in request.COOKIES:
         userid = request.COOKIES['uname']
-        user = Users.objects.filter(user_id=userid)[0]
+        user = sdustoj.models.Users.objects.filter(user_id=userid)[0]
     if 'uname' in request.POST:
         pwd=request.POST.get('pwd')
         rpwd=request.POST.get('rpwd')
@@ -186,7 +189,7 @@ def problem(request):
         contestid = request.GET.get('contestid')
     if 'l_id' in request.GET:
         language_id = request.GET.get('l_id')
-    problem = Problem.objects.filter(problem_id=pid)
+    problem = sdustoj.models.Problem.objects.filter(problem_id=pid)
     return render_to_response('problemset/problem.html',
                               {'problem': problem[0], 'islogin': islogin, 'contestid': contestid,'language_id':language_id}, c)
 
@@ -199,8 +202,8 @@ def problemset(request):
     page_num = 1
     if 'page_num' in request.GET:
         page_num = request.GET.get('page_num')
-    problemlist = Problem.objects.all().order_by('problem_id')
-    p = Paginator(problemlist, config.page_count)
+    problemlist = sdustoj.models.Problem.objects.all().order_by('problem_id')
+    p = Paginator(problemlist, sdustoj.config.page_count)
     page = p.page_range
     if len(page) == 0:
         page = [1]
@@ -222,7 +225,7 @@ def submit(request):
     if 'l_id' in request.GET:
         languageid = request.GET.get('l_id')
     problemid = request.GET.get('p_id')
-    language = Language.objects.all()
+    language = sdustoj.models.Language.objects.all()
     if str(languageid).isdigit() and int(languageid) != 100:
         for item in language:
             if item.language == int(languageid):
@@ -281,10 +284,10 @@ def signup(request):
     if uname == '' or pwd == '' or nick == '':
         return render_to_response("Sign/signup.html", {'error': 2}, c)
     if pwd == rpwd:
-        c_u = Users.objects.filter(user_id=uname)
+        c_u = sdustoj.models.Users.objects.filter(user_id=uname)
         if c_u:
             return render_to_response("Sign/signup.html", {'error': 3}, c)
-        u = Users(defunct='C', nick=nick, user_id=uname, password=pwd, email=email, volume=str(555), language=str(555),
+        u = sdustoj.models.Users(defunct='C', nick=nick, user_id=uname, password=pwd, email=email, volume=str(555), language=str(555),
                   ip=str(ip), activated=str(555), submit=0, solved=0)
         u.save()
         return HttpResponseRedirect('index')
@@ -317,16 +320,16 @@ def status(request):
         contest_id = request.GET.get('c_id')
         if str(contest_id).isdigit() and int(contest_id) != -1 and contest_id != None and contest_id != 'None':
             ifcontest='True'
-            statusinfo = Statusinfo.objects.filter(contest_id=contest_id).order_by('-solution_id').values('status','problem_id','contest_id','solution_id','user_id','memory','time','in_date','language','code_length','judgetime','valid','num','language_name','ip')
+            statusinfo = sdustoj.models.Statusinfo.objects.filter(contest_id=contest_id).order_by('-solution_id').values('status','problem_id','contest_id','solution_id','user_id','memory','time','in_date','language','code_length','judgetime','valid','num','language_name','ip')
             for item in statusinfo:
                 item['ifcontest']='True'
-                problem_num=problem_index[ContestProblem.objects.get(contest_id=contest_id,problem_id=item['problem_id']).num]
+                problem_num=problem_index[sdustoj.models.ContestProblem.objects.get(contest_id=contest_id,problem_id=item['problem_id']).num]
                 item['problem_num']=problem_num
         else:
-            statusinfo = Statusinfo.objects.all().order_by('-solution_id')
+            statusinfo = sdustoj.models.Statusinfo.objects.all().order_by('-solution_id')
     else:
-        statusinfo = Statusinfo.objects.all().order_by('-solution_id')
-    p = Paginator(statusinfo, config.page_count)
+        statusinfo = sdustoj.models.Statusinfo.objects.all().order_by('-solution_id')
+    p = Paginator(statusinfo, sdustoj.config.page_count)
     page = p.page_range
     if len(page) == 0:
         page_num=1
@@ -347,18 +350,18 @@ def contest(request):
     if 'uname' in request.COOKIES:
         power = request.COOKIES.get('power')
     contestid = request.GET.get('id')
-    problem_list = ContestProblem.objects.filter(contest_id=contestid).order_by('num','problem_id').values('contest_id', 'id','problem_id','title', 'num')
+    problem_list = sdustoj.models.ContestProblem.objects.filter(contest_id=contestid).order_by('num','problem_id').values('contest_id', 'id','problem_id','title', 'num')
     for item in problem_list:
         item['num']=problem_index[item['num']]
-        status = Statusinfo.objects.filter(user_id=uname, problem_id=item['problem_id'], contest_id=contestid,status='Accepted')
+        status = sdustoj.models.Statusinfo.objects.filter(user_id=uname, problem_id=item['problem_id'], contest_id=contestid,status='Accepted')
         if len(status) > 0:
             item['status'] = 'Y'
         else:
             item['status'] = 'N'
-    contest = Contestinfo.objects.get(contest_id=contestid)
+    contest = sdustoj.models.Contestinfo.objects.get(contest_id=contestid)
     cur_time = time.strftime('%Y-%m-%d %H:%M %p', time.localtime())
     if contest.privilege == 'Private' and power != 'A':
-        users = ContestUsers.objects.filter(contest_id=contestid, user_id=uname)
+        users = sdustoj.models.ContestUsers.objects.filter(contest_id=contestid, user_id=uname)
         if len(users) <= 0:
             return render_to_response('error/errorinfo.html', {'error': 'contestprivilegeerror'}, c)
     c_time = int(time.mktime(time.localtime()))
@@ -383,7 +386,7 @@ def contestlist(request):
         page_num = request.GET.get('page_num')
         if page_num <= 0:
             page_num = 1
-    contestlist = Contestinfo.objects.all().order_by('-contest_id').values('contest_id', 'title', 'start_time',
+    contestlist = sdustoj.models.Contestinfo.objects.all().order_by('-contest_id').values('contest_id', 'title', 'start_time',
                                                                            'end_time', 'defunct', 'points', 'privilege',
                                                                            'language')
     for item in contestlist:
@@ -397,7 +400,7 @@ def contestlist(request):
         elif cur_time >= s_time and cur_time <= e_time:
             status = 'Running'
         item['status'] = status
-    p = Paginator(contestlist, config.page_count)
+    p = Paginator(contestlist,sdustoj.config.page_count)
     contestlist = p.page(page_num).object_list
     page = p.page_range
     if len(page) <= 0:
@@ -420,11 +423,11 @@ def ranklist(request):
             page_num = page_num + 1
         if 'sub' in str(op) and page_num > 1:
             page_num = page_num - 1
-    users = list(Users.objects.all().values('nick', 'user_id'))
+    users = list(sdustoj.models.Users.objects.all().values('nick', 'user_id'))
     for user in users:
         user_id = user['user_id']
-        user['ac'] = ac = len(Statusinfo.objects.filter(status='Accepted', user_id=user_id))
-        user['sub'] = sub = len(Statusinfo.objects.filter(user_id=user_id))
+        user['ac'] = ac = len(sdustoj.models.Statusinfo.objects.filter(status='Accepted', user_id=user_id))
+        user['sub'] = sub = len(sdustoj.models.Statusinfo.objects.filter(user_id=user_id))
         try:
             user['rate'] = rate = str(round(ac * 100.0 / sub,2)) + '%'
         except:
@@ -434,7 +437,7 @@ def ranklist(request):
     for user in users:
         user['index'] = count
         count += 1
-    p = Paginator(users, config.page_count)
+    p = Paginator(users, sdustoj.config.page_count)
     page = p.page_range
     if len(page) == 0:
         page_num=1
@@ -458,9 +461,9 @@ def board(request):
         contest_id=request.GET.get('c_id')
         if contest_id.isdigit():
             contest_id = int(contest_id)
-    c_problems=ContestProblem.objects.filter(contest_id=contest_id)
+    c_problems=sdustoj.models.ContestProblem.objects.filter(contest_id=contest_id)
     problem_size=len(c_problems)
-    c_users=ContestUsers.objects.filter(contest_id=contest_id).values('user_id').distinct()
+    c_users=sdustoj.models.ContestUsers.objects.filter(contest_id=contest_id).values('user_id').distinct()
     user_size=len(c_users)
     result=[]
     names=[]
@@ -469,16 +472,16 @@ def board(request):
     for i in range(user_size):
         result.append({})
         result[i]['user_id']=u=c_users[i]['user_id']
-        result[i]['ac_size']=len(Statusinfo.objects.filter(user_id=u,contest_id=contest_id,status='Accepted').values('problem_id').distinct())
+        result[i]['ac_size']=len(sdustoj.models.Statusinfo.objects.filter(user_id=u,contest_id=contest_id,status='Accepted').values('problem_id').distinct())
         result[i]['judge']=[]
         for j in range(problem_size):
             result[i]['judge'].append({})
             result[i]['judge'][j]['ac']='False'
             result[i]['judge'][j]['sub']=0
-            p=ContestProblem.objects.get(contest_id=contest_id,num=j)
+            p=sdustoj.models.ContestProblem.objects.get(contest_id=contest_id,num=j)
             p_id=p.problem_id
-            p_sub=Statusinfo.objects.filter(contest_id=contest_id,problem_id=p_id,user_id=u)
-            p_ac=Statusinfo.objects.filter(contest_id=contest_id,problem_id=p_id,status='Accepted',user_id=u)
+            p_sub=sdustoj.models.Statusinfo.objects.filter(contest_id=contest_id,problem_id=p_id,user_id=u)
+            p_ac=sdustoj.models.Statusinfo.objects.filter(contest_id=contest_id,problem_id=p_id,status='Accepted',user_id=u)
             result[i]['judge'][j]['sub']=len(p_sub)
             if len(p_sub) <= 0:
                 result[i]['judge'][j]['ac']='None'
@@ -513,17 +516,17 @@ def sub_source(request):
         contestid = -1
     if problemid == None or problemid == '' or problemid == 'None':
         problemid = -1
-    s = Solution(ip=str(ip),problem_id=int(problemid), user_id=username, contest_id=int(contestid), language=int(languageid),
+    s = sdustoj.models.Solution(ip=str(ip),problem_id=int(problemid), user_id=username, contest_id=int(contestid), language=int(languageid),
                  result=0, code_length=len(source), time=0, memory=0,
                  in_date=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()))
     s.save()
     s = s.solution_id
-    sou = SourceCode(solution_id=s, source=source)
+    sou = sdustoj.models.SourceCode(solution_id=s, source=source)
     sou.save()
-    problem = Problem.objects.get(problem_id=problemid)
+    problem = sdustoj.models.Problem.objects.get(problem_id=problemid)
     problem.submit += 1
     problem.save()
-    user = Users.objects.get(user_id=username)
+    user = sdustoj.models.Users.objects.get(user_id=username)
     user.submit = user.submit + 1
     user.save()
     return HttpResponseRedirect('status?c_id=' + str(contestid), c)
@@ -532,15 +535,16 @@ def sub_source(request):
 Render the admin login page
 '''
 def admin_login(request):
+    logging.debug('admin_login')
     c = RequestContext(request)
     user_name = ''
-    ca =Captcha(request)
+    ca =Captcha(request)    #验证码
     pwd = ''
     ip=request.META.get('REMOTE_ADDR',None)
     if 'user_name' in request.POST:
         user_name = request.POST.get('user_name')
     else :
-        return render_to_response("admin/login.html", c)
+        return render_to_response("admin/login.html",{},c)   # {}这个空字典不能够省略
     if 'code' in request.POST:
         code = request.POST.get('code')
         if not ca.validate(code):
@@ -549,20 +553,22 @@ def admin_login(request):
         pwd = request.POST.get('password')
     if user_name != '':
         try:
-            user = Users.objects.get(user_id=user_name)
+            logging.debug('user_name')
+            logging.debug('user_name：%s',user_name)
+            user = sdustoj.models.Users.objects.get(user_id=user_name)
             if str(user.password) == pwd:
                 if user.defunct != 'C':
-                    log=Loginlog(user_id=user_name,password=pwd,ip=ip,time=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()))
+                    log=sdustoj.models.Loginlog(user_id=user_name,password=pwd,ip=ip,time=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())) #strftime()格式化时间
                     log.save()
                     response = HttpResponseRedirect('index?menuName=&submenuName=See%20SDUSTOJ', c)
-                    response.set_cookie('uname', user_name, 3600)
+                    response.set_cookie('uname', user_name, 3600) #3600表示这个cookie有3600s的有效期
                     response.set_cookie('power', user.defunct, 3600)
                     return response
                 else:
                     return render_to_response('admin/login.html', {'user_error': True}, c)
             else:
                 return render_to_response('admin/login.html', {'pwd_error': True}, c)
-        except Exception, e:
+        except Exception as e:   #我们在捕获这个异常之后假如需要访问TA的一些属性怎么办，这个时候就可以使用as关键字所以，这里的e是前面MyError类的一个instance，我们可以直接访问他的value，也就是你看到的e.value
             return render_to_response('admin/login.html', {'user_error': True}, c)
     else:
         return render_to_response('admin/login.html', {'user_error': True}, c)
@@ -594,7 +600,7 @@ def admin_addproblem_save(request):
     sampleoutput = request.POST.get('sampleoutput')
     hint = request.POST.get('hint')
     try:
-        problem = Problem(in_date=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), accepted=0, submit=0, solved=0,
+        problem = sdustoj.models.Problem(in_date=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()), accepted=0, submit=0, solved=0,
                           time_limit=timelimit, sample_output=sampleoutput, sample_input=sampleinput, title=title,
                           memory_limit=memlimit, input=input, output=output, description=descripe, hint=hint)
         problem.save()
@@ -607,8 +613,8 @@ def admin_addproblem_save(request):
 render admin add contest page
 '''
 def admin_addcontest(request):
-    language = Language.objects.all()
-    privilege = ContestPrivilege.objects.all();
+    language = sdustoj.models.Language.objects.all()
+    privilege = sdustoj.models.ContestPrivilege.objects.all();
     return render_to_response("admin/addcontest.html", {'language': language, 'privilege': privilege})
 
 '''
@@ -624,7 +630,7 @@ def admin_addcontest_save(request):
     language = request.POST.get('language')
     problems = request.POST.get('problems')
     users = request.POST.get('users')
-    c = Contest(defunct='C', title=title,
+    c = sdustoj.models.Contest(defunct='C', title=title,
                 start_time=datetime.datetime.strptime(starttime, '%Y-%m-%d %H:%M:%S'),
                 end_time=datetime.datetime.strptime(endtime, '%Y-%m-%d %H:%M:%S'),
                 private=int(contest_private), langmask=int(language))
@@ -634,19 +640,19 @@ def admin_addcontest_save(request):
     for problem in re.split(';|,', str(problems)):
         try:
             if problem != '':
-                item = Problem.objects.get(problem_id=problem)
-                cp = ContestProblem(contest_id=contestid, title=item.title, problem_id=item.problem_id, num=index)
+                item = sdustoj.models.Problem.objects.get(problem_id=problem)
+                cp = sdustoj.models.ContestProblem(contest_id=contestid, title=item.title, problem_id=item.problem_id, num=index)
                 index+=1
                 cp.save()
-        except Exception, e:
+        except Exception as e:
             flag = False
     for user in re.split(';|,', str(users)):
         try:
             if user != '':
-                item = Users.objects.get(user_id=user)
-                cu = ContestUsers(user_id=user, contest_id=contestid, num=0)
+                item = sdustoj.models.Users.objects.get(user_id=user)
+                cu = sdustoj.models.ContestUsers(user_id=user, contest_id=contestid, num=0)
                 cu.save()
-        except Exception, e:
+        except Exception as e:
             flag = False
     if flag == True:
         return HttpResponse("success", c)
@@ -661,7 +667,7 @@ def compileerror(request):
     solution_id = ''
     if 'solution_id' in request.GET:
         solution_id = request.GET.get('solution_id')
-    compileinfo = Compileinfo.objects.get(solution_id=solution_id)
+    compileinfo = sdustoj.models.Compileinfo.objects.get(solution_id=solution_id)
     return render_to_response('error/errorinfo.html', {'error': 'compileerror', 'compileerror': compileinfo.error}, c)
 
 '''
@@ -678,8 +684,8 @@ def admin_problemlist(request):
             page_num = page_num + 1
         if 'sub' in str(op) and page_num > 1:
             page_num = page_num - 1
-    problems = Problem.objects.all().order_by('problem_id')
-    p = Paginator(problems, config.admin_page_cuont)
+    problems = sdustoj.models.Problem.objects.all().order_by('problem_id')
+    p = Paginator(problems, sdustoj.config.admin_page_cuont)
     page = p.page_range
     if len(page) == 0:
         page_num=1
@@ -694,7 +700,7 @@ render the add problem file page
 '''
 def admin_addproblemfile(request):
     c = RequestContext(request)
-    problems = Problem.objects.all()
+    problems = sdustoj.models.Problem.objects.all()
     return render_to_response('admin/addproblemfile.html', {'problems': problems}, c)
 
 '''
@@ -704,8 +710,8 @@ def admin_addproblemfile_save(request):
     c = RequestContext(request)
     files = request.FILES.getlist('files')
     problem_id = request.POST.get('problem_id')
-    data_path = config.data_dir + '/' + str(problem_id)
-    problem = Problem.objects.filter(problem_id=problem_id)
+    data_path = sdustoj.config.data_dir + '/' + str(problem_id)
+    problem = sdustoj.models.Problem.objects.filter(problem_id=problem_id)
     if len(problem) > 0:
         try:
             if not os.path.exists(data_path):
@@ -740,8 +746,8 @@ def admin_contestlist(request):
             page_num = page_num + 1
         if 'sub' in str(op) and page_num > 1:
             page_num = page_num - 1
-    contests = Contestinfo.objects.all().order_by('-contest_id')
-    p = Paginator(contests, config.admin_page_cuont)
+    contests = sdustoj.models.Contestinfo.objects.all().order_by('-contest_id')
+    p = Paginator(contests, sdustoj.config.admin_page_cuont)
     page = p.page_range
     if len(page) == 0:
         page_num=1
@@ -765,8 +771,8 @@ def admin_newslist(request):
             page_num = page_num + 1
         if 'sub' in str(op) and page_num > 1:
             page_num = page_num - 1
-    news = News.objects.all().order_by('-news_id')
-    p = Paginator(news, config.admin_page_cuont)
+    news = sdustoj.models.News.objects.all().order_by('-news_id')
+    p = Paginator(news, sdustoj.config.admin_page_cuont)
     page = p.page_range
     if len(page) == 0:
         page_num=1
@@ -780,14 +786,14 @@ render the admin add user page
 '''
 def admin_adduser(request):
     c=RequestContext(request)
-    return render_to_response('admin/adduser.html',c)
+    return render_to_response('admin/adduser.html',{},c)
 
 '''
 render the admin add news page
 '''
 def admin_addnews(request):
     c = RequestContext(request)
-    return render_to_response('admin/addnews.html', c)
+    return render_to_response('admin/addnews.html',{}, c)
 
 '''
 deal the news data
@@ -798,17 +804,17 @@ def admin_dealnews(request):
     news_id = request.POST.get('news_id')
     if op == 'del':
         try:
-            news = News.objects.get(news_id=news_id)
+            news = sdustoj.models.News.objects.get(news_id=news_id)
             news.delete()
-        except Exception, e:
+        except Exception as e:
             return HttpResponse('failure', c)
     if op == 'release':
         release = request.POST.get('release')
         try:
-            news = News.objects.get(news_id=news_id)
+            news = sdustoj.models.News.objects.get(news_id=news_id)
             news.release = int(release)
             news.save()
-        except Exception, e:
+        except Exception as e:
             return HttpResponse('failure', c)
     return HttpResponse('success', c)
 
@@ -830,11 +836,11 @@ def admin_addnews_save(request):
     if 'uname' in request.COOKIES:
         author = request.COOKIES.get('uname')
     try:
-        news = News(type=type, release=release, comment=content, author=author,
+        news = sdustoj.models.News(type=type, release=release, comment=content, author=author,
                     time=time.strftime('%Y-%m-%d %H:%M:%S', time.localtime()))
         news.save()
         return HttpResponse('success', c)
-    except Exception, e:
+    except Exception as e:
         return HttpResponse('failure', c)
 
 '''
@@ -844,7 +850,7 @@ def admin_getnews(request):
     c = RequestContext(request)
     type = request.POST.get('type')
     if int(type) == 0:
-        news = News.objects.filter(type=0, release=1)
+        news = sdustoj.models.News.objects.filter(type=0, release=1)
         str = "["
         for item in news:
             str += '{\"content\":\"' + item.comment + '\"},'
@@ -854,7 +860,7 @@ def admin_getnews(request):
             str = str[0:-1] + ']'
         return HttpResponse(str, c)
     if int(type) == 1:
-        news = News.objects.filter(type=1, release=1)
+        news = sdustoj.models.News.objects.filter(type=1, release=1)
         str = "["
         for item in news:
             str += '{\"content\":\"' + item.comment + '\"},'
@@ -879,8 +885,8 @@ def admin_userlist(request):
             page_num = page_num + 1
         if 'sub' in str(op) and page_num > 1:
             page_num = page_num - 1
-    users = Users.objects.all().order_by('reg_time')
-    p = Paginator(users, config.admin_page_cuont)
+    users = sdustoj.models.Users.objects.all().order_by('reg_time')
+    p = Paginator(users, sdustoj.config.admin_page_cuont)
     page = p.page_range
     if len(page) == 0:
         page_num=1
@@ -915,7 +921,7 @@ def getcodeinfo(request):
     if 's_id' in request.POST:
         solution_id = request.POST.get('s_id')
     try:
-        code = SourceCode.objects.get(solution_id=int(solution_id))
+        code = sdustoj.models.SourceCode.objects.get(solution_id=int(solution_id))
         code = str(code.source)
         code = re.sub("[\\\]", '\\\\', code)
         code = re.sub('\"', '\\"', code)
@@ -924,7 +930,7 @@ def getcodeinfo(request):
         code = re.sub('[\r\n]', '<p>', code)
         json_data = '{\"source\":\"' + code + '\"}';
         return HttpResponse(json_data, c)
-    except Exception, e:
+    except Exception as e:
         solution_id = -1
         return HttpResponse("{}", c)
 
@@ -939,26 +945,26 @@ def admin_deal_data(request):
     if type == 'problem':
         try:
             problem_id = request.POST.get('p_id')
-            ppath = config.data_dir + "/" + problem_id
+            ppath = sdustoj.config.data_dir + "/" + problem_id
             if os.path.exists(ppath):
                 shutil.rmtree(ppath)
-            problem = Problem.objects.get(problem_id=problem_id)
+            problem = sdustoj.models.Problem.objects.get(problem_id=problem_id)
             problem.delete()
-        except Exception, e:
+        except Exception as e:
             return HttpResponse("{\"result\":\"failure\"}", c)
     elif type == 'contest':
         try:
             contest_id = request.POST.get('c_id')
-            contest = Contest.objects.get(contest_id=contest_id)
+            contest = sdustoj.models.Contest.objects.get(contest_id=contest_id)
             contest.delete()
-        except Exception, e:
+        except Exception as e:
             return HttpResponse("{\"result\":\"failure\"}", c)
     elif type == 'user':
         try:
             user_id = request.POST.get('u_id')
-            user = Users.objects.get(user_id=user_id)
+            user = sdustoj.models.Users.objects.get(user_id=user_id)
             user.delete()
-        except Exception, e:
+        except Exception as e:
             return HttpResponse("{\"result\":\"failure\"}", c)
     return HttpResponse("{\"result\":\"success\"}", c)
 
@@ -973,13 +979,13 @@ def admin_dealuser(request):
     uname = request.POST.get('uname')
     power = request.POST.get('power')
     try:
-        user = Users.objects.get(user_id=uname)
+        user = sdustoj.models.Users.objects.get(user_id=uname)
         if pwd not in reserved:
             user.password = pwd
         if power in powers:
             user.defunct = power
         user.save()
-    except Exception, e:
+    except Exception as e:
         return HttpResponse("{\"result\":\"failure\"}", c)
     return HttpResponse("{\"result\":\"success\"}", c)
 
@@ -998,15 +1004,16 @@ def admin_userloginlog(request):
             page_num = page_num + 1
         if 'sub' in str(op) and page_num > 1:
             page_num = page_num - 1
+    #userlog = sdustoj.models.Loginlog.objects.all().order_by('-time')
     userlog = Loginlog.objects.all().order_by('-time')
-    p = Paginator(userlog, config.admin_page_cuont)
+    p = Paginator(userlog, sdustoj.config.admin_page_cuont)
     page = p.page_range
     if len(page) == 0:
         page_num=1
     elif len(page) < page_num:
         page_num = page[-1]
     users = p.page(page_num).object_list
-    return render_to_response('admin/userloginlog.html', {'userlog': userlog, 'cur_page': page_num, 'totalpage': page[-1]}, c)
+    return render_to_response('admin/userloginlog.html', { 'cur_page': page_num, 'totalpage': page[-1]}, c) #'userlog': userlog,
 
 '''
 deal edit problem data
@@ -1019,7 +1026,7 @@ def admin_editproblem(request):
         type = request.POST.get('type')
         problem_id=request.POST.get('p_id')
     if type == 'get':
-        problem=Problem.objects.get(problem_id=problem_id)
+        problem=sdustoj.models.Problem.objects.get(problem_id=problem_id)
         result={}
         result['problemid']=problem.problem_id
         result['title']=problem.title
@@ -1033,7 +1040,7 @@ def admin_editproblem(request):
         return HttpResponse(json.dumps(result),c)
     elif type == 'save':
         try:
-            problem=Problem.objects.get(problem_id=problem_id)
+            problem=sdustoj.models.Problem.objects.get(problem_id=problem_id)
             problem.description=request.POST.get('describe')
             problem.input=request.POST.get('input')
             problem.output=request.POST.get('output')
@@ -1057,7 +1064,7 @@ def admin_adduserfile(request):
         for line in file:
             userinfo = re.split(',|;',str(line))
             if userinfo[0] != '' and userinfo[1] != '' and userinfo[2] != '' and userinfo[3] !='':
-                u = Users(defunct='C', nick=userinfo[1], user_id=userinfo[0], password=userinfo[2], email=userinfo[3], volume=str(555), language=str(555),ip=str(ip), activated=str(555), submit=0, solved=0)
+                u = sdustoj.models.Users(defunct='C', nick=userinfo[1], user_id=userinfo[0], password=userinfo[2], email=userinfo[3], volume=str(555), language=str(555),ip=str(ip), activated=str(555), submit=0, solved=0)
                 u.save()
             else:
                 return render_to_response('admin/adduser.html',{'result':'failure'},c)
@@ -1067,7 +1074,7 @@ def admin_adduserfile(request):
 
 def admin_rejudge(request):
     c=RequestContext(request)
-    return render_to_response('admin/rejudge.html',c)
+    return render_to_response('admin/rejudge.html',{},c)
 
 '''
 deal rejudge data
@@ -1079,13 +1086,13 @@ def admin_rejudge_save(request):
 
     try:
         if rejudgefrom.isdigit() and rejudgeto.isdigit():
-            problems=Solution.objects.filter(solution_id__gte=int(rejudgefrom),solution_id__lte=int(rejudgeto))
+            problems=sdustoj.models.Solution.objects.filter(solution_id__gte=int(rejudgefrom),solution_id__lte=int(rejudgeto))
             for item in problems:
                 item.result=0
                 item.save()
         else:
             return render_to_response('admin/rejudge.html',{'result':'failure'},c)
-    except Exception,e:
+    except Exception as e:
         return render_to_response('admin/rejudge.html',{'result':'failure'},c)
     return render_to_response('admin/rejudge.html',{'result':'success'},c)
 

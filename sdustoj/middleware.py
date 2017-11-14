@@ -1,5 +1,5 @@
 from django.http import HttpResponseRedirect
-from urllib import quote
+#from urllib import quote
 import re
 class QtsAuthenticationMiddleware(object):
     def process_request(self,request):

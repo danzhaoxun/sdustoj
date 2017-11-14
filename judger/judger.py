@@ -5,6 +5,7 @@
 程序执行需要相关数据库和测试数据。
 """
 import os
+import os.path
 import sys
 import shutil
 import subprocess
@@ -12,28 +13,28 @@ import codecs
 import logging
 import shlex
 import time
-import config
-import lorun
+import judger.config
+#import lorun  ------------------------------------------------------------- 暂时屏蔽 ，到时候将C语言编译成为库然后在开启
 import threading
-import MySQLdb
-from db import run_sql
-from Queue import Queue
+import pymysql
+import judger.db
+import queue
 
 def clean_work_dir(solution_id):
     '''清理word目录，删除临时文件'''
-    dir_name = os.path.join(config.work_dir, str(solution_id))
+    dir_name = os.path.join(judger.config.work_dir, str(solution_id))
     shutil.rmtree(dir_name)
 
 
 def create_work_dir(solution_id):
-    dir_name = os.path.join(config.work_dir, str(solution_id))
+    dir_name = os.path.join(judger.config.work_dir, str(solution_id))
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
         
 #get the count about problem data in file from problem dir
 def get_data_count(problem_id):
     '''获得测试数据的个数信息'''
-    full_path = os.path.join(config.data_dir, str(problem_id))
+    full_path = os.path.join(judger.config.data_dir, str(problem_id))
     try:
         files = os.listdir(full_path)
     except OSError as e:
@@ -49,16 +50,16 @@ def get_data_count(problem_id):
 #get problem time_limit and memory_limit from db according to problem_id
 def get_problem_limit(problem_id):
     sql="select time_limit,memory_limit from problem where problem_id = "+str(problem_id)
-    result=run_sql(sql)
+    result=judger.db.run_sql(sql)
     return result[0][0],result[0][1]
 
 #update judge result according to solution_id
 def update_result(pi):
     sql="update solution set time = "+str(pi['take_time'])+",memory = "+str(pi['take_memory'])+",result="+str(pi['result'])+" where solution_id ="+str(pi['solution_id'])+";"
-    run_sql(sql)
+    judger.db.run_sql(sql)
     if str(pi['result'])== '1':
 	sql="update problem set accepted =accepted +1 where problem_id ="+str(pi['problem_id'])
-	run_sql(sql)
+    judger.db.run_sql(sql)
 def run(problem_id, solution_id, language, data_count, user_id):
     low_level()
     '''获取程序执行时间和内存'''
@@ -110,7 +111,7 @@ def run(problem_id, solution_id, language, data_count, user_id):
 	
 def check_dangerous_code(solution_id, language):
     if language in ['python2', 'python3']:
-        code = file(config.work_dir+'/%s/main.py' % solution_id).readlines()
+        code = open(judger.config.work_dir+'/%s/main.py' % solution_id).readlines()
         support_modules = [
             're',  # 正则表达式
             'sys',  # sys.stdin
@@ -146,19 +147,19 @@ def check_dangerous_code(solution_id, language):
         return True
     if language in ['gcc', 'g++']:
         try:
-            code = file(config.work_dir+'/%s/main.c' % solution_id).read()
+            code = open(judger.config.work_dir+'/%s/main.c' % solution_id).read()
         except:
-            code = file(config.work_dir+'/%s/main.cpp' % solution_id).read()
+            code = open(judger.config.work_dir+'/%s/main.cpp' % solution_id).read()
         if code.find('system') >= 0:
             return False
         return True
 #    if language == 'java':
-#        code = file('/work/%s/Main.java'%solution_id).read()
+#        code = open('/work/%s/Main.java'%solution_id).read()
 #        if code.find('Runtime.')>=0:
 #            return False
 #        return True
     if language == 'go':
-        code = file(config.work_dir+'/%s/main.go' % solution_id).read()
+        code = open(judger.config.work_dir+'/%s/main.go' % solution_id).read()
         danger_package = [
             'os', 'path', 'net', 'sql', 'syslog', 'http', 'mail', 'rpc', 'smtp', 'exec', 'user',
         ]
@@ -169,13 +170,13 @@ def check_dangerous_code(solution_id, language):
 
 def update_compile_info(solution_id,err):
     sql = "insert into compileinfo(solution_id,error) values ("+str(solution_id)+",'"+str(err)+"');"
-    run_sql(sql)
+    judger.db.run_sql(sql)
     
 def compile(solution_id, language):
     low_level()
     '''将程序编译成可执行文件'''
     language = language.lower()
-    dir_work = os.path.join(config.work_dir, str(solution_id))
+    dir_work = os.path.join(judger.config.work_dir, str(solution_id))
     build_cmd = {
         "gcc": "gcc main.c -o main -Wall -lm -O2 -std=c99 --static -DONLINE_JUDGE",
         "g++": "g++ main.cpp -O2 -Wall -lm --static -DONLINE_JUDGE -o main",
@@ -198,8 +199,8 @@ def compile(solution_id, language):
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE)
     out, err = p.communicate()  # 获取编译错误信息
-    err_txt_path = os.path.join(config.work_dir, str(solution_id), 'error.txt')
-    f = file(err_txt_path, 'w')
+    err_txt_path = os.path.join(judger.config.work_dir, str(solution_id), 'error.txt')
+    f = open(err_txt_path, 'w')
     f.write(err)
     f.write(out)
     f.close()
@@ -227,7 +228,7 @@ def get_code(solution_id, problem_id, pro_lang):
         "haskell": "main.hs"
     }
     select_code_sql = "select source from sdustoj.source_code where solution_id  = "+str(solution_id)
-    feh = run_sql(select_code_sql)
+    feh = judger.db.run_sql(select_code_sql)
     if feh is not None:
         try:
             code = feh[0][0]
@@ -238,7 +239,7 @@ def get_code(solution_id, problem_id, pro_lang):
         logging.error("2 cannot get code of runid %s" % solution_id)
         return False
     try:
-        work_path = os.path.join(config.work_dir, str(solution_id))
+        work_path = os.path.join(judger.config.work_dir, str(solution_id))
         low_level()
         os.makedirs(work_path)
     except OSError as e:
@@ -249,7 +250,7 @@ def get_code(solution_id, problem_id, pro_lang):
             return False
     try:
         real_path = os.path.join(
-            config.work_dir,
+            judger.config.work_dir,
             str(solution_id),
             file_name[pro_lang])
     except KeyError as e:
@@ -326,53 +327,53 @@ def judge_one_mem_time( solution_id, problem_id, data_num, time_limit, mem_limit
     low_level()
     '''评测一组数据'''
     input_path = os.path.join(
-        config.data_dir, str(problem_id), 'data%s.in' %
+        judger.config.data_dir, str(problem_id), 'data%s.in' %
         data_num)
     try:
-        input_data = file(input_path)
+        input_data = open(input_path)
     except:
         return False
     output_path = os.path.join(
-        config.work_dir, str(solution_id), 'out%s.txt' %
+        judger.config.work_dir, str(solution_id), 'out%s.txt' %
         data_num)
-    temp_out_data = file(output_path, 'w')
+    temp_out_data = open(output_path, 'w')
     if language == 'java':
         cmd = 'java -cp %s Main' % (
-            os.path.join(config.work_dir,
+            os.path.join(judger.config.work_dir,
                          str(solution_id)))
         main_exe = shlex.split(cmd)
     elif language == 'python2':
         cmd = 'python2 %s' % (
-            os.path.join(config.work_dir,
+            os.path.join(judger.config.work_dir,
                          str(solution_id),
                          'main.pyc'))
         main_exe = shlex.split(cmd)
     elif language == 'python3':
         cmd = 'python3 %s' % (
-            os.path.join(config.work_dir,
+            os.path.join(judger.config.work_dir,
                          str(solution_id),
                          '__pycache__/main.cpython-33.pyc'))
         main_exe = shlex.split(cmd)
     elif language == 'lua':
         cmd = "lua %s" % (
-            os.path.join(config.work_dir,
+            os.path.join(judger.config.work_dir,
                          str(solution_id),
                          "main"))
         main_exe = shlex.split(cmd)
     elif language == "ruby":
         cmd = "ruby %s" % (
-            os.path.join(config.work_dir,
+            os.path.join(judger.config.work_dir,
                          str(solution_id),
                          "main.rb"))
         main_exe = shlex.split(cmd)
     elif language == "perl":
         cmd = "perl %s" % (
-            os.path.join(config.work_dir,
+            os.path.join(judger.config.work_dir,
                          str(solution_id),
                          "main.pl"))
         main_exe = shlex.split(cmd)
     else:
-        main_exe = [os.path.join(config.work_dir, str(solution_id), 'main'), ]
+        main_exe = [os.path.join(judger.config.work_dir, str(solution_id), 'main'), ]
     runcfg = {
         'args': main_exe,
         'fd_in': input_data.fileno(),
@@ -381,30 +382,31 @@ def judge_one_mem_time( solution_id, problem_id, data_num, time_limit, mem_limit
         'memorylimit': mem_limit,  # in KB
     }
     low_level()
-    rst = lorun.run(runcfg)
+    #rst = lorun.run(runcfg)  暂时屏蔽
     input_data.close()
     temp_out_data.close()
-    logging.debug(rst)
-    return rst
+    #logging.debug(rst)     暂时屏蔽
+    #return rst    暂时屏蔽
+    return 0
 
 def judge_result(problem_id, solution_id, data_num):
     low_level()
     '''对输出数据进行评测'''
     logging.debug("Judging result")
     correct_result = os.path.join(
-        config.data_dir, str(problem_id), 'data%s.out' %
+        judger.config.data_dir, str(problem_id), 'data%s.out' %
         data_num)
     user_result = os.path.join(
-        config.work_dir, str(solution_id), 'out%s.txt' %
+        judger.config.work_dir, str(solution_id), 'out%s.txt' %
         data_num)
     try:
-        correct = file(
+        correct = open(
             correct_result).read(
             ).replace(
                 '\r',
                 '').rstrip(
                 )  # 删除\r,删除行末的空格和换行
-        user = file(user_result).read().replace('\r', '').rstrip()
+        user = open(user_result).read().replace('\r', '').rstrip()
     except:
         return False
     if correct == user:  # 完全相同:AC
@@ -443,7 +445,7 @@ def worker():
         dblock.acquire()
         update_result(result)  # 将结果写入数据库
         dblock.release()
-        if config.auto_clean:  # 清理work目录
+        if judger.config.auto_clean:  # 清理work目录
             clean_work_dir(result['solution_id'])
         q.task_done()  # 一个任务完成
 
@@ -452,7 +454,7 @@ def put_task_into_queue():
     while True:
         q.join()  # 阻塞程序,直到队列里面的任务全部完成
         sql = "select solution_id,problem_id,user_id,contest_id,language from solution where result = -1 or result =0 or result is null order by solution_id asc;"
-        data = run_sql(sql)
+        data = judger.db.run_sql(sql)
         time.sleep(0.2)  # 延时0.2秒,防止因速度太快不能获取代码
         for i in data:
             solution_id, problem_id, user_id, contest_id, pro_lang = i
@@ -490,7 +492,7 @@ def update_solution_status(solution_id,value):
     if value == None:
 	value = -1
     sql = "update solution set result= "+str(value)+" where solution_id = "+str(solution_id)+";"
-    run_sql(sql)
+    judger.db.run_sql(sql)
 
 def low_level():
     try:
@@ -504,14 +506,14 @@ except:
     logging.error("please run this program as root!")
     sys.exit(-1)
 # 初始化队列
-q = Queue(config.queue_size)
+q = queue.Queue(judger.config.queue_size)
 # 创建数据库锁，保证一个时间只能一个程序都写数据库
 dblock = threading.Lock()
 
 
 def start_work_thread():
     '''开启工作线程'''
-    for i in range(config.count_thread):
+    for i in range(judger.config.count_thread):
         t = threading.Thread(target=worker)
         t.deamon = True
         t.start()
@@ -529,7 +531,7 @@ def check_thread():
     '''检测评测程序是否存在,小于config规定数目则启动新的'''
     while True:
         try:
-            if threading.active_count() < config.count_thread + 2:
+            if threading.active_count() < judger.config.count_thread + 2:
                 logging.info("start new thread")
                 t = threading.Thread(target=worker)
                 t.deamon = True

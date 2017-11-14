@@ -13,14 +13,14 @@ __author__ = 'Lonely'
 from django.db import models
 import datetime
 
-class Activation(models.Model):
+class DjangoActivation(models.Model):
     user_id = models.CharField(max_length=50)
     code = models.CharField(primary_key=True, max_length=200)
     time = models.DateTimeField()
 
     class Meta:
-        managed = False
-        db_table = 'activation'
+        #managed = False
+        db_table = 'django_activation'
 
 
 class Collections(models.Model):
@@ -33,7 +33,7 @@ class Collections(models.Model):
 
     class Meta:
         managed = False
-        db_table = 'collections'
+        db_table = 'django_collections'
 
 
 class CollectionsProblem(models.Model):
@@ -42,7 +42,7 @@ class CollectionsProblem(models.Model):
     pid = models.IntegerField()
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'collections_problem'
 
 
@@ -51,7 +51,7 @@ class Compileinfo(models.Model):
     error = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'compileinfo'
 
 
@@ -67,7 +67,7 @@ class Contest(models.Model):
     contest_mode = models.IntegerField(null=True)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'contest'
 
 class ContestPrivilege(models.Model):
@@ -76,7 +76,7 @@ class ContestPrivilege(models.Model):
     private_id = models.CharField(max_length=45, blank=True, null=True)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'contest_privilege'
 
 
@@ -87,7 +87,7 @@ class ContestProblem(models.Model):
     num = models.IntegerField()
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'contest_problem'
 
 class ContestUsers(models.Model):
@@ -97,17 +97,18 @@ class ContestUsers(models.Model):
     num = models.IntegerField()
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'contest_users'
 
-
+#数据库修改到此处
 class DjangoMigrations(models.Model):
+    id = models.AutoField(primary_key=True)
     app = models.CharField(max_length=255)
     name = models.CharField(max_length=255)
     applied = models.DateTimeField()
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'django_migrations'
 
 
@@ -117,8 +118,11 @@ class Loginlog(models.Model):
     ip = models.CharField(max_length=100, blank=True, null=True)
     time = models.DateTimeField(blank=True, null=True)
 
+    def __unicode__(self):
+        return self.text
+
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'loginlog'
 
 
@@ -134,20 +138,20 @@ class Mail(models.Model):
     defunct = models.CharField(max_length=1)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'mail'
 
 
 class News(models.Model):
     news_id = models.AutoField(primary_key=True)
     comment = models.TextField()
-    time = models.DateTimeField(      )
+    time = models.DateTimeField()
     release = models.IntegerField(blank=True, null=True)
     type = models.IntegerField(blank=True, null=True)
     author = models.CharField(max_length=45, blank=True, null=True)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'news'
 
 
@@ -163,7 +167,7 @@ class Online(models.Model):
     uri = models.CharField(max_length=255, blank=True, null=True)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'online'
 
 
@@ -173,7 +177,7 @@ class Privilege(models.Model):
     defunct = models.CharField(max_length=1)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'privilege'
 
 
@@ -197,7 +201,7 @@ class Problem(models.Model):
     solved = models.IntegerField(blank=True, null=True)
     fileupload = models.CharField(max_length=1,default='N')
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'problem'
 
 
@@ -211,7 +215,7 @@ class Reply(models.Model):
     ip = models.CharField(max_length=30)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'reply'
 
 
@@ -220,7 +224,7 @@ class Runtimeinfo(models.Model):
     error = models.TextField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'runtimeinfo'
 
 
@@ -230,7 +234,7 @@ class Sim(models.Model):
     sim = models.IntegerField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'sim'
 
 
@@ -251,7 +255,7 @@ class Solution(models.Model):
     judgetime = models.DateTimeField(blank=True, null=True)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'solution'
 
 
@@ -260,7 +264,7 @@ class SourceCode(models.Model):
     source = models.TextField()
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'source_code'
 
 
@@ -274,7 +278,7 @@ class Topic(models.Model):
     author_id = models.CharField(max_length=20)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'topic'
 
 
@@ -295,7 +299,7 @@ class Users(models.Model):
     activated = models.IntegerField()
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'users'
 
 class Status(models.Model):
@@ -303,7 +307,7 @@ class Status(models.Model):
     status = models.CharField(max_length=45, blank=True, null=True)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'status'
 
 
@@ -313,7 +317,7 @@ class Language(models.Model):
     language_name = models.CharField(max_length=45, blank=True, null=True)
 
     class Meta:
-        managed = False
+        #managed = False
         db_table = 'language'
 
 

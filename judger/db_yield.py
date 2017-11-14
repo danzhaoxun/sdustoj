@@ -2,8 +2,8 @@
 #coding=utf-8
 
 import time
-import config
-import MySQLdb
+import judger.config
+import pymysql
 import logging
 import types
 import threading
@@ -46,8 +46,8 @@ def connect_to_db():
     con = None
     while True:
         try:
-            con = MySQLdb.connect(config.db_host,config.db_user,config.db_password,
-                                  config.db_name,charset=config.db_charset)
+            con = pymysql.connect(judger.config.db_host,judger.config.db_user,judger.config.db_password,
+                                  judger.config.db_name,charset=judger.config.db_charset)
             return con
         except: 
             logging.error('Cannot connect to database,trying again')
@@ -67,7 +67,7 @@ def run_sql_yield():
             elif type(sql) == types.ListType:
                 for i in sql:
                     cur.execute(i)
-        except MySQLdb.OperationalError,e:
+        except pymysql.OperationalError as e:
             logging.error(e)
             cur.close()
             con.close()

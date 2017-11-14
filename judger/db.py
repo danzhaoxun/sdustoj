@@ -2,18 +2,18 @@
 #coding=utf-8
 
 import time
-import config
-import MySQLdb
+import judger.config
+import pymysql
 import logging
 import types
 
 def run_sql(sql):
     '''执行sql语句,并返回结果'''
-    con = None
+    con = None   #None
     while True:
         try:
-            con = MySQLdb.connect(config.db_host,config.db_user,config.db_password,
-                                  config.db_name,charset=config.db_charset)
+            con = pymysql.connect(judger.config.db_host,judger.config.db_user,judger.config.db_password,
+                                  judger.config.db_name,charset=judger.config.db_charset)
             break
         except: 
             logging.error('Cannot connect to database,trying again')
@@ -25,7 +25,7 @@ def run_sql(sql):
         elif type(sql) == types.ListType:
             for i in sql:
                 cur.execute(i)
-    except MySQLdb.OperationalError,e:
+    except pymysql.OperationalError as e:
         logging.error(e)
         cur.close()
         con.close()

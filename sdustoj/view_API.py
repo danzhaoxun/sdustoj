@@ -1,14 +1,15 @@
 from django.http import HttpResponse, HttpResponseRedirect
-from django.shortcuts import render_to_response, RequestContext
+from django.shortcuts import render_to_response
+from django.template import RequestContext
 from django.template.context_processors import csrf
 from django.views.decorators.csrf import csrf_protect, csrf_exempt
 from django.core.paginator import Paginator
 from django.forms.models import model_to_dict
-from sdustoj.models import *
+import sdustoj.models
 import operator
 import time
 import json
-import config
+import sdustoj.config
 import os
 import re
 import datetime
@@ -31,7 +32,7 @@ def API(request):
 
 def API_getprobleminfo(request):
     c=RequestContext(request)
-    problems=Problem.objects.all()
+    problems=sdustoj.models.Problem.objects.all()
     result=[]
     for item in problems:
         cache={}
@@ -50,7 +51,7 @@ def API_getsolutioninfo(request):
     try:
         if 'user' in request.GET:
             user_id=request.GET.get('user')
-            solutions=Statusinfo.objects.filter(user_id=user_id)
+            solutions=sdustoj.models.Statusinfo.objects.filter(user_id=user_id)
             for item in solutions:
                 cache={}
                 cache['problem_id']=item.problem_id
@@ -62,7 +63,7 @@ def API_getsolutioninfo(request):
                 cache['code_length']=item.code_length
                 cache['contest_id']=item.contest_id
                 result.append(cache)
-    except Exception,e:
+    except Exception as e:
         pass
     #json_data = serializers.serialize("json", list(result))
     json_data=json.dumps(result)
